@@ -1,0 +1,110 @@
+#include <M5Core2.h>
+#include <Wire.h>
+#include <PMS.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME680.h>
+#include <SD.h>
+
+#define PMS_RX 16
+#define PMS_TX 17
+#define SDSPEED 8000000
+
+PMS pms(Serial1);
+Adafruit_BME680 bme;
+File dataFile;
+
+void setup() {
+  M5.begin();
+  Wire.begin();
+  Serial1.begin(9600, SERIAL_8N1, PMS_RX, PMS_TX);
+  
+  if (!bme.begin()) {
+    M5.Lcd.println("Could not find a valid BME680 sensor, check wiring!");
+    while (1);
+  }
+
+  if (!SD.begin(13, 15, 2, 14)) {
+    M5.Lcd.println("SD card initialization failed!");
+    return;
+  }
+  dataFile = SD.open("data.csv", FILE_WRITE);
+  if (!dataFile) {
+    M5.Lcd.println("Failed to open data.csv!");
+    return;
+  }
+  dataFile.println("time,PM1.0,PM2.5,Temperature,Humidity,Pressure,Gas Resistance");
+  dataFile.flush();
+
+  M5.Lcd.println("Initialized!");
+}
+
+void loop() {
+  if (pms.read()) {
+    float pm1 = pms.getPM1();
+    float pm2_5 = pms.getPM2_5();
+    float temperature = bme.temperature;
+    float humidity = bme.humidity;
+    float pressure = bme.pressure / 100.0F;
+    float gas_resistance = bme.gas_resistance / 1000.0F;
+    String dataString = String(millis());
+    dataString += ",";
+    dataString += String(pm1 / 10.0);
+    dataString += ",";
+    dataString += String(pm2_5 / 10.0);
+    dataString += ",";
+    dataString += String(temperature);
+    dataString += ",";
+    dataString += String(humidity);
+    dataString += ",";
+    dataString += String(pressure);
+    dataString += ",";
+    dataString += String(gas_resistance);
+    M5.Lcd.print("PM1.0: ");
+    M5.Lcd.println(pm1);
+    M5.Lcd.print("PM2.5: ");
+    M5.Lcd.println(pm2_5);
+    M5.Lcd.print("Temperature: ");
+    M5.Lcd.println(temperature);
+    M5.Lcd.print("Humidity: ");
+    M5.Lcd.println(humidity);
+    M5.Lcd.print("Pressure: ");
+    M5.Lcd.println(pressure);
+    M5.Lcd.print("Gas Resistance: ");
+    M5.Lcd.println(gas_resistance);
+    M5.Lcd.println();
+    dataFile.println(dataString);
+    dataFile.flush();
+    M5.Lcd.fillScreen(BLACK);
+    plotGraph();
+  }
+}
+
+void plotGraph() {
+  float pm1 = pms.getPM1() / 10.0;
+  float pm2_5 = pms.getPM2_5() / 10.0;
+float temperature = bme.temperature;
+float humidity = bme.humidity;
+float pressure = bme.pressure / 100.0F;
+float gas_resistance = bme.gas_resistance / 1000.0F;
+
+M5.Lcd.drawLine(0, 160, 320, 160, WHITE);
+M5.Lcd.drawLine(50, 0, 50, 160, WHITE);
+
+int x = 50 + millis() / 2000;
+int y1 = map(pm1, 0, 500, 160, 0);
+int y2 = map(pm2_5, 0, 500, 160, 0);
+int y3 = map(temperature, 0, 40, 160, 0);
+int y4 = map(humidity, 0, 100, 160, 0);
+int y5 = map(pressure, 900, 1100, 160, 0);
+int y6 = map(gas_resistance, 0, 500, 160, 0);
+
+M5.Lcd.fillRect(x, y1, 2, 2, RED);
+M5.Lcd.fillRect(x, y2, 2, 2, BLUE);
+M5.Lcd.fillRect(x, y3, 2, 2, GREEN);
+M5.Lcd.fillRect(x, y4, 2, 2, YELLOW);
+M5.Lcd.fillRect(x, y5, 2, 2, CYAN);
+M5.Lcd.fillRect(x, y6, 2, 2, MAGENTA);
+
+delay(100);
+}
+
